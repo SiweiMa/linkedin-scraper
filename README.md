@@ -20,8 +20,8 @@ python src/scraper.py --test
 To run against LinkedIn directly, provide your credentials, a search URL, and the path to `chromedriver`:
 
 ```bash
-export LINKEDIN_USERNAME=your_email
-export LINKEDIN_PASSWORD=your_password
+export LINKEDIN_USERNAME=sma34@dons.usfca.edu
+export LINKEDIN_PASSWORD=rCq@yLvWX@UH8hR
 python src/scraper.py \
     --search-url "https://www.linkedin.com/jobs/search/?keywords=python" \
     --driver-path /path/to/chromedriver --headless

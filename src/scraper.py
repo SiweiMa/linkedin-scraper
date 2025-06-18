@@ -5,6 +5,7 @@ import logging
 import os
 from dataclasses import dataclass
 from typing import List
+import time
 
 from bs4 import BeautifulSoup
 from selenium import webdriver
@@ -68,19 +69,78 @@ def login(driver: webdriver.Chrome, username: str, password: str) -> bool:
         True if login was successful, False otherwise.
     """
     try:
+        # Use the standard LinkedIn login URL
         driver.get("https://www.linkedin.com/login")
+        
+        # Add a small delay to mimic human behavior
+        time.sleep(2)
+        
+        # Wait for and find the username field
         username_field = WebDriverWait(driver, 10).until(
             EC.presence_of_element_located((By.ID, "username"))
         )
+        
+        # Clear and enter username with human-like typing
+        username_field.clear()
+        time.sleep(0.5)
+        for char in username:
+            username_field.send_keys(char)
+            time.sleep(0.1)  # Small delay between keystrokes
+        
+        # Find password field
         password_field = driver.find_element(By.ID, "password")
-        username_field.send_keys(username)
-        password_field.send_keys(password)
-        password_field.submit()
-        WebDriverWait(driver, 10).until(EC.url_contains("/feed"))
-        logger.info("Successfully logged into LinkedIn")
-        return True
+        password_field.clear()
+        time.sleep(0.5)
+        
+        # Enter password with human-like typing
+        for char in password:
+            password_field.send_keys(char)
+            time.sleep(0.1)
+        
+        time.sleep(1)
+        
+        # Find and click the login button
+        login_button = driver.find_element(By.XPATH, "//button[@type='submit']")
+        login_button.click()
+        
+        # Wait for login to complete - check for multiple possible success indicators
+        try:
+            # Wait for either feed page or any post-login page
+            WebDriverWait(driver, 15).until(
+                lambda d: "/feed" in d.current_url or 
+                         "/in/" in d.current_url or
+                         "linkedin.com/feed" in d.current_url or
+                         d.find_elements(By.CSS_SELECTOR, "[data-test-id='nav-top-secondary']")
+            )
+            logger.info("Successfully logged into LinkedIn")
+            return True
+            
+        except Exception as e:
+            # Check if we're on a challenge page (CAPTCHA, verification, etc.)
+            current_url = driver.current_url
+            page_source = driver.page_source.lower()
+            
+            if "challenge" in current_url or "verification" in page_source or "captcha" in page_source:
+                logger.error("Login blocked - security challenge detected. LinkedIn may have detected automation.")
+                return False
+            elif "login" in current_url:
+                # Check for error messages
+                error_elements = driver.find_elements(By.CSS_SELECTOR, ".form__label--error, .alert, .error")
+                if error_elements:
+                    error_msg = error_elements[0].text
+                    logger.error(f"Login failed with error: {error_msg}")
+                else:
+                    logger.error("Login failed - still on login page")
+                return False
+            else:
+                logger.error(f"Unexpected page after login: {current_url}")
+                return False
+                
     except WebDriverException as exc:
-        logger.error("Failed to log into LinkedIn: %s", exc)
+        logger.error("Failed to log into LinkedIn: %s", str(exc))
+        return False
+    except Exception as exc:
+        logger.error("Unexpected error during login: %s", str(exc))
         return False
 
 
@@ -168,10 +228,22 @@ def main() -> None:
         logger.error("Username and password are required for authentication")
         return
     options = webdriver.ChromeOptions()
+    
+    # Add options to avoid detection
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option('useAutomationExtension', False)
+    options.add_argument("--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+    
     if args.headless:
         options.add_argument("--headless")
+    
     service = Service(args.driver_path) if args.driver_path else Service()
     with webdriver.Chrome(service=service, options=options) as driver:
+        # Execute script to remove webdriver property
+        driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         if not login(driver, args.username, args.password):
             return
         postings = fetch_job_postings(driver, args.search_url)
