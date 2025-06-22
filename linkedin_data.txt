@@ -1,0 +1,310 @@
+LinkedIn Job Scraping Results
+==================================================
+
+PAGE 1 RESULTS:
+------------------------------
+Job #1:
+  Title: BI Engineer
+BI Engineer
+  Company: MyFitnessPal
+  Location: United States (Remote)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4251305977
+
+Job #2:
+  Title: Data Scientist
+Data Scientist with verification
+  Company: CVS Health
+  Location: Woonsocket, RI (Remote)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4253493314
+
+Job #3:
+  Title: Data Scientist III
+Data Scientist III with verification
+  Company: Fanatics
+  Location: United States (Remote)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4250780162
+
+Job #4:
+  Title: Data Scientist
+Data Scientist with verification
+  Company: Lensa
+  Location: Menlo Park, CA (On-site)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4254760236
+
+Job #5:
+  Title: Senior Data Scientist
+Senior Data Scientist with verification
+  Company: Empower
+  Location: United States (Remote)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4249910417
+
+Job #6:
+  Title: Senior Data Engineer
+Senior Data Engineer with verification
+  Company: Asana
+  Location: San Francisco, CA (Hybrid)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4252403261
+
+Job #7:
+  Title: Sr. Data Engineer
+Sr. Data Engineer
+  Company: Yahoo
+  Location: United States (Remote)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4253569454
+
+Page 1 total jobs: 7
+
+PAGE 2 RESULTS:
+------------------------------
+Job #8:
+  Title: Data Scientist
+Data Scientist with verification
+  Company: CVS Health
+  Location: New York, NY (Remote)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4253492185&start=25
+
+Job #9:
+  Title: Data Scientist
+Data Scientist with verification
+  Company: Lensa
+  Location: San Francisco, CA (On-site)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4254755817&start=25
+
+Job #10:
+  Title: Senior Data Scientist
+Senior Data Scientist with verification
+  Company: SGF Global
+  Location: United States (Remote)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4252579378&start=25
+
+Job #11:
+  Title: Risk Strategy Data Scientist
+Risk Strategy Data Scientist with verification
+  Company: BILL
+  Location: San Jose, CA
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4253432721&start=25
+
+Job #12:
+  Title: Senior Data Scientist
+Senior Data Scientist
+  Company: RethinkFirst
+  Location: Boston, MA (Remote)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4252908441&start=25
+
+Job #13:
+  Title: Senior Machine Learning Engineer
+Senior Machine Learning Engineer with verification
+  Company: Zillow
+  Location: United States (Remote)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4253542067&start=25
+
+Job #14:
+  Title: Data Scientist
+Data Scientist with verification
+  Company: Quadtec Solutions, Inc.
+  Location: United States (Remote)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4252039153&start=25
+
+Job #15:
+  Title: Senior Data Scientist (AdTech)
+Senior Data Scientist (AdTech)
+  Company: Nexxen
+  Location: United States (Remote)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4250807583&start=25
+
+Job #16:
+  Title: Experienced Data Engineer- Fully Remote (US)
+Experienced Data Engineer- Fully Remote (US) with verification
+  Company: Johnson & Johnson MedTech
+  Location: Dallas, TX (Remote)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4250754967&start=25
+
+Job #17:
+  Title: AI Software Engineer - Data Platform
+AI Software Engineer - Data Platform
+  Company: Perplexity
+  Location: Palo Alto, CA (On-site)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4254505711&start=25
+
+Job #18:
+  Title: Expert Data Scientist - Reliability Analytics
+Expert Data Scientist - Reliability Analytics
+  Company: Pacific Gas and Electric Company
+  Location: Oakland, CA (Hybrid)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4253731363&start=25
+
+Page 2 total jobs: 11
+
+PAGE 3 RESULTS:
+------------------------------
+Job #19:
+  Title: Data Scientist
+Data Scientist with verification
+  Company: CVS Health
+  Location: New York, NY (Remote)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4253492321&start=50
+
+Job #20:
+  Title: Data Scientist, Product Analytics
+Data Scientist, Product Analytics with verification
+  Company: Lensa
+  Location: Sacramento, CA (On-site)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4254757776&start=50
+
+Job #21:
+  Title: Experienced Data Engineer- Fully Remote (US)
+Experienced Data Engineer- Fully Remote (US) with verification
+  Company: Johnson & Johnson MedTech
+  Location: Irvine, CA (Remote)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4250762155&start=50
+
+Job #22:
+  Title: Data Scientist
+Data Scientist
+  Company: Nomis Solutions
+  Location: United States (Remote)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4252565503&start=50
+
+Job #23:
+  Title: Data Scientist
+Data Scientist with verification
+  Company: Antal International
+  Location: California, United States (On-site)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4253813670&start=50
+
+Job #24:
+  Title: AI Software Engineer - Data Platform
+AI Software Engineer - Data Platform
+  Company: Perplexity
+  Location: San Francisco, CA (On-site)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4254507575&start=50
+
+Job #25:
+  Title: Data Scientist or Senior Data Scientist
+Data Scientist or Senior Data Scientist with verification
+  Company: National Research Group
+  Location: United States (Remote)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4252716360&start=50
+
+Job #26:
+  Title: Senior Data Engineer
+Senior Data Engineer
+  Company: Pulsar Informatics, Inc.
+  Location: United States (Remote)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4252700413&start=50
+
+Job #27:
+  Title: Senior Data Engineer
+Senior Data Engineer with verification
+  Company: Energy CX
+  Location: United States (Remote)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4252047363&start=50
+
+Job #28:
+  Title: Analytics Engineer
+Analytics Engineer with verification
+  Company: MongoDB
+  Location: United States (Remote)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4250810404&start=50
+
+Job #29:
+  Title: Senior AI/ML Engineer
+Senior AI/ML Engineer
+  Company: ValidMind
+  Location: United States (Remote)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4253799198&start=50
+
+Page 3 total jobs: 11
+
+PAGE 4 RESULTS:
+------------------------------
+Job #30:
+  Title: Sr. Data Engineer
+Sr. Data Engineer with verification
+  Company: CVS Health
+  Location: Woonsocket, RI (Remote)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4254492572&start=75
+
+Job #31:
+  Title: Data Scientist, Product Analytics
+Data Scientist, Product Analytics with verification
+  Company: Lensa
+  Location: San Francisco, CA (On-site)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4254755771&start=75
+
+Job #32:
+  Title: Experienced Data Engineer- Fully Remote (US)
+Experienced Data Engineer- Fully Remote (US) with verification
+  Company: Johnson & Johnson MedTech
+  Location: Piscataway, NJ (Remote)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4250756653&start=75
+
+Job #33:
+  Title: Staff Data Scientist
+Staff Data Scientist with verification
+  Company: Cypress HCM
+  Location: United States (Remote)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4252336123&start=75
+
+Job #34:
+  Title: Lead Data Engineer
+Lead Data Engineer
+  Company: Franklin Fitch
+  Location: Georgia, United States (Remote)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4252516538&start=75
+
+Job #35:
+  Title: Senior Data Scientist
+Senior Data Scientist
+  Company: Engine
+  Location: Denver, CO (Remote)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4252719680&start=75
+
+Job #36:
+  Title: Senior Data Engineer
+Senior Data Engineer with verification
+  Company: QuidelOrtho
+  Location: Oneida County, NY (Remote)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4252933482&start=75
+
+Job #37:
+  Title: Staff Data Scientist, Ads
+Staff Data Scientist, Ads with verification
+  Company: Reddit, Inc.
+  Location: United States (Remote)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4251586919&start=75
+
+Job #38:
+  Title: Senior Data Scientist, Search & AI
+Senior Data Scientist, Search & AI with verification
+  Company: Atlassian
+  Location: Seattle, WA (Remote)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4251251140&start=75
+
+Job #39:
+  Title: Senior AI Engineer
+Senior AI Engineer with verification
+  Company: Roofstock
+  Location: San Francisco, CA
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4250745134&start=75
+
+Job #40:
+  Title: Lead Data Analyst
+Lead Data Analyst with verification
+  Company: Pinterest
+  Location: United States (Remote)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4253794553&start=75
+
+Job #41:
+  Title: AI Research/Machine Learning Engineer - Agent Products
+AI Research/Machine Learning Engineer - Agent Products
+  Company: Perplexity
+  Location: San Francisco, CA (On-site)
+  Link: https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4254502867&start=75
+
+Page 4 total jobs: 12
+
+PAGE 5 RESULTS:
+------------------------------
+Page 5 total jobs: 0
+
