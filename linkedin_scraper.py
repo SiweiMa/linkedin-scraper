@@ -1,506 +1,489 @@
-import pandas as pd
-import getpass
-import time
-from bs4 import BeautifulSoup
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.common.actions.wheel_input import ScrollOrigin
-from selenium.webdriver import ActionChains
-from email.mime.multipart import MIMEMultipart
-from email.mime.application import MIMEApplication
-from email.mime.text import MIMEText
-import smtplib
+#!/usr/bin/env python3
+"""
+LinkedIn Job Scraper
+
+A web scraper for collecting job postings from LinkedIn using Selenium WebDriver.
+Supports pagination, scrolling, and saves results to CSV and text files.
+
+Usage:
+    python linkedin_scraper.py --username your_email@example.com --password your_password
+"""
+
 import argparse
+import json
 import logging
 import os
-from dataclasses import dataclass
-from typing import List
 import time
-import json
+from dataclasses import dataclass
 from logging.handlers import RotatingFileHandler
+from typing import Dict, List, Optional, Union
 
+import pandas as pd
+import smtplib
 from bs4 import BeautifulSoup
+from email.mime.application import MIMEApplication
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from selenium import webdriver
-from selenium.common.exceptions import WebDriverException, NoSuchElementException, TimeoutException
+from selenium.common.exceptions import (
+    NoSuchElementException, 
+    TimeoutException, 
+    WebDriverException
+)
+from selenium.webdriver import ActionChains
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.actions.wheel_input import ScrollOrigin
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.common.actions.wheel_input import ScrollOrigin
-from selenium.webdriver import ActionChains
+from selenium.webdriver.remote.webelement import WebElement
 
-# Enhanced logging configuration
-# Create logs directory if it doesn't exist
-logs_dir = 'logs'
-if not os.path.exists(logs_dir):
-    os.makedirs(logs_dir)
 
-# Configure logging with both file and console handlers
-log_filename = os.path.join(logs_dir, 'linkedin_scraper.log')
+@dataclass
+class ScrapingConfig:
+    """Configuration class for scraping parameters."""
+    username: str = ""
+    password: str = ""
+    search_query: str = "Senior Data Scientist"
+    search_url: str = 'https://www.linkedin.com/jobs/search-results/?f_TPR=r604800&keywords=%22senior%20data%20engineer%22&origin=JOBS_HOME_SEARCH_BUTTON'
+    total_pages: int = 100
+    scroll_count: int = 10
+    scroll_step: int = 500
+    page_load_timeout: int = 60
+    script_timeout: int = 30
+    implicit_wait: int = 10
+    element_wait_timeout: int = 15
+    max_retries: int = 3
+    retry_delay: int = 5
 
-# Create formatter
-formatter = logging.Formatter(
-    '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
 
-# Create file handler with rotation (max 10MB per file, keep 5 backup files)
-file_handler = RotatingFileHandler(
-    log_filename, 
-    maxBytes=10*1024*1024,  # 10MB
-    backupCount=5,
-    encoding='utf-8'
-)
-file_handler.setLevel(logging.DEBUG)
-file_handler.setFormatter(formatter)
-
-# Create console handler
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.INFO)  # Less verbose on console
-console_handler.setFormatter(formatter)
-
-# Configure root logger
-logging.basicConfig(
-    level=logging.DEBUG,
-    handlers=[file_handler, console_handler]
-)
-
-logger = logging.getLogger(__name__)
-
-# Log the start of the session
-logger.info("="*60)
-logger.info("STARTING NEW LINKEDIN SCRAPER SESSION")
-logger.info(f"Log file location: {os.path.abspath(log_filename)}")
-logger.info("="*60)
-
-data_list = []  # Create an empty list to store data
-
-def get_job_title(soup):
-    title = 'disabled ember-view job-card-container__link job-card-list__title'
-    title_tag = soup.find_all('a', {'class': title})
-    titles = [title.text.strip() for title in title_tag]
-    return titles
-
-def get_company(soup):
-    company = 'artdeco-entity-lockup__subtitle ember-view'
-    companies = soup.find_all('div', {'class': company})
-    company_name = [comp.text.strip() for comp in companies]
-    return company_name
+class LinkedInScraper:
+    """Main scraper class for LinkedIn job postings."""
     
-def get_location(soup):
-    loc = 'artdeco-entity-lockup__caption ember-view'
-    locat = soup.find_all('div',{'class':loc})
-    location = [loct.text.strip() for loct in locat]
-    return location
-
-def get_url(soup):
-    url_tag = soup.find_all('a','disabled ember-view job-card-container__link job-card-list__title')
-    base_url = 'https://www.linkedin.com'
-    link = [base_url + tag['href'] for tag in url_tag]
-    return link
-
-
-def info(soup):
-    info_dict = {'Job Title': get_job_title(soup), 'Company Name': get_company(soup), 'Location': get_location(soup), 'Link':get_url(soup)}
-    return info_dict
-
-def create_driver():
-    """Create a Chrome WebDriver with optimized settings to prevent timeouts."""
-    from selenium.webdriver.chrome.options import Options
-    
-    chrome_options = Options()
-    
-    # Add arguments to improve stability and prevent timeouts
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--disable-web-security")
-    chrome_options.add_argument("--disable-features=VizDisplayCompositor")
-    chrome_options.add_argument("--disable-extensions")
-    chrome_options.add_argument("--disable-plugins")
-    chrome_options.add_argument("--disable-images")  # Disable image loading for faster performance
-    chrome_options.add_argument("--disable-javascript")  # This might break some functionality, remove if needed
-    chrome_options.add_argument("--page-load-strategy=eager")  # Don't wait for all resources to load
-    
-    # Memory and performance optimizations
-    chrome_options.add_argument("--memory-pressure-off")
-    chrome_options.add_argument("--max_old_space_size=4096")
-    chrome_options.add_argument("--aggressive-cache-discard")
-    
-    # Set timeouts
-    chrome_options.add_argument("--timeout=30000")
-    
-    # Create the driver with extended timeouts
-    try:
-        driver = webdriver.Chrome(options=chrome_options)
+    def __init__(self, config: ScrapingConfig):
+        self.config = config
+        self.driver: Optional[webdriver.Chrome] = None
+        self.data_list: List[Dict[str, List[str]]] = []
+        self.logger = self._setup_logging()
         
-        # Set page load timeout
-        driver.set_page_load_timeout(60)  # 60 seconds timeout for page loads
-        
-        # Set script timeout
-        driver.set_script_timeout(30)  # 30 seconds timeout for script execution
-        
-        # Set implicit wait
-        driver.implicitly_wait(10)  # 10 seconds implicit wait
-        
-        logger.info("Chrome WebDriver created successfully with optimized settings")
-        return driver
-        
-    except Exception as e:
-        logger.error(f"Failed to create Chrome WebDriver: {str(e)}")
-        raise
+    def _setup_logging(self) -> logging.Logger:
+        """Set up logging configuration."""
+        logs_dir = 'logs'
+        os.makedirs(logs_dir, exist_ok=True)
 
-
-
-def login(driver: webdriver.Chrome, username: str, password: str) -> bool:
-    """Perform login to LinkedIn using Selenium.
-
-    Parameters
-    ----------
-    driver : webdriver.Chrome
-        Selenium web driver instance.
-    username : str
-        LinkedIn username or email.
-    password : str
-        LinkedIn password.
-
-    Returns
-    -------
-    bool
-        True if login was successful, False otherwise.
-    """
-    try:
-        # Use the standard LinkedIn login URL
-        driver.get("https://www.linkedin.com/login")
+        log_filename = os.path.join(logs_dir, 'linkedin_scraper.log')
         
-        # Add a small delay to mimic human behavior
-        time.sleep(2)
-        
-        # Wait for and find the username field
-        username_field = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.ID, "username"))
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
         )
-        
-        # Clear and enter username with human-like typing
-        username_field.clear()
-        time.sleep(0.5)
-        for char in username:
-            username_field.send_keys(char)
-            time.sleep(0.1)  # Small delay between keystrokes
-        
-        # Find password field
-        password_field = driver.find_element(By.ID, "password")
-        password_field.clear()
-        time.sleep(0.5)
-        
-        # Enter password with human-like typing
-        for char in password:
-            password_field.send_keys(char)
-            time.sleep(0.1)
-        
-        time.sleep(1)
-        
-        # Find and click the login button
-        login_button = driver.find_element(By.XPATH, "//button[@type='submit']")
-        login_button.click()
-        
-        # Wait for login to complete - check for multiple possible success indicators
-        try:
-            # Wait for either feed page or any post-login page
-            WebDriverWait(driver, 15).until(
-                lambda d: "/feed" in d.current_url or 
-                         "/in/" in d.current_url or
-                         "linkedin.com/feed" in d.current_url or
-                         d.find_elements(By.CSS_SELECTOR, "[data-test-id='nav-top-secondary']")
-            )
-            logger.info("Successfully logged into LinkedIn")
-            return True
-            
-        except Exception as e:
-            # Check if we're on a challenge page (CAPTCHA, verification, etc.)
-            current_url = driver.current_url
-            page_source = driver.page_source.lower()
-            
-            if "challenge" in current_url or "verification" in page_source or "captcha" in page_source:
-                logger.error("Login blocked - security challenge detected. LinkedIn may have detected automation.")
-                return False
-            elif "login" in current_url:
-                # Check for error messages
-                error_elements = driver.find_elements(By.CSS_SELECTOR, ".form__label--error, .alert, .error")
-                if error_elements:
-                    error_msg = error_elements[0].text
-                    logger.error(f"Login failed with error: {error_msg}")
-                else:
-                    logger.error("Login failed - still on login page")
-                return False
-            else:
-                logger.error(f"Unexpected page after login: {current_url}")
-                return False
-                
-    except WebDriverException as exc:
-        logger.error("Failed to log into LinkedIn: %s", str(exc))
-        return False
-    except Exception as exc:
-        logger.error("Unexpected error during login: %s", str(exc))
-        return False
 
-def safe_find_element(driver, by, value, timeout=10, description=""):
-    """Safely find an element with proper error handling and logging."""
-    try:
-        logger.debug(f"Attempting to find element: {description} using {by}='{value}'")
-        element = WebDriverWait(driver, timeout).until(
-            EC.presence_of_element_located((by, value))
+        # File handler with rotation
+        file_handler = RotatingFileHandler(
+            log_filename, 
+            maxBytes=10*1024*1024,  # 10MB
+            backupCount=5,
+            encoding='utf-8'
         )
-        logger.debug(f"Successfully found element: {description}")
-        return element
-    except TimeoutException:
-        logger.error(f"Timeout waiting for element: {description} using {by}='{value}'")
-        logger.debug(f"Current URL: {driver.current_url}")
-        logger.debug(f"Page title: {driver.title}")
-        return None
-    except NoSuchElementException:
-        logger.error(f"Element not found: {description} using {by}='{value}'")
-        return None
-    except Exception as e:
-        logger.error(f"Unexpected error finding element {description}: {str(e)}")
-        return None
+        file_handler.setLevel(logging.DEBUG)
+        file_handler.setFormatter(formatter)
 
-def safe_click_element(driver, element, description=""):
-    """Safely click an element with error handling."""
-    try:
-        if element:
-            driver.execute_script("arguments[0].scrollIntoView(true);", element)
-            time.sleep(1)
-            element.click()
-            logger.debug(f"Successfully clicked: {description}")
-            return True
-        else:
-            logger.error(f"Cannot click null element: {description}")
-            return False
-    except Exception as e:
-        logger.error(f"Error clicking element {description}: {str(e)}")
-        return False
+        # Console handler
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        console_handler.setFormatter(formatter)
 
-# Your original variables
-username = 'sm3614@columbia.edu' #'sma34@dons.usfca.edu' #
-password = 'Qw090909'
-search = 'Senior Data Scientist'
+        # Configure logger
+        logger = logging.getLogger(__name__)
+        logger.setLevel(logging.DEBUG)
+        logger.handlers.clear()
+        logger.addHandler(file_handler)
+        logger.addHandler(console_handler)
 
-logger.info("Starting LinkedIn scraper")
-# driver = webdriver.Chrome()
-driver = create_driver()  # Use the optimized driver creation function
-driver.maximize_window()
-
-try:
-    if not login(driver, username, password):
-        logger.error("Login failed, exiting")
-        driver.quit()
-        exit(1)    
-
-    search_url = 'https://www.linkedin.com/jobs/search-results/?f_TPR=r2592000&keywords=%22Senior%20Data%20Scientist%22'
-    logger.info(f"Navigating to search URL: {search_url}")
-    driver.get(search_url)
-    
-    # Add longer wait and human-like delay
-    time.sleep(3)
-
-    # Debug: Log current page state
-    logger.debug(f"Current URL after jobs filter: {driver.current_url}")
-    logger.debug(f"Page title: {driver.title}")
-
-    data_list = []
-    total_pages = 100
-
-    for i in range(total_pages):
-        logger.info(f"Processing page {i+1}/{total_pages}")
+        # Log session start
+        logger.info("="*60)
+        logger.info("STARTING NEW LINKEDIN SCRAPER SESSION")
+        logger.info(f"Log file: {os.path.abspath(log_filename)}")
+        logger.info("="*60)
         
-        # Find pagination button with better error handling
-        if i + 1 != 1:
-            page_button = safe_find_element(
-                driver,
-                By.CSS_SELECTOR,
-                f'button[aria-label="Page {i+1}"]',
-                timeout=10,
-                description=f"Page {i+1} button"
-            )
-            
-            if not page_button:
-                # Try alternative pagination selectors
-                alternative_selectors = [
-                    f'button:contains("{i+1}")',
-                    f'li[data-test-pagination-page-btn="{i+1}"] button',
-                    f'button[data-test-pagination-page-btn="{i+1}"]'
-                ]
-                
-                for selector in alternative_selectors:
-                    page_button = safe_find_element(driver, By.CSS_SELECTOR, selector, timeout=5, description=f"alternative page {i+1} selector")
-                    if page_button:
-                        break
-            
-            if page_button:
-                if safe_click_element(driver, page_button, f"Page {i+1} button"):
-                    logger.info(f"Clicked page {i+1} button, waiting for page to load")
-                    time.sleep(15)
-                else:
-                    logger.warning(f"Failed to click page {i+1} button, continuing with current page")
-            else:
-                logger.warning(f"Could not find page {i+1} button, stopping pagination")
-                break
+        return logger
 
-        # Re-establish scroll origin for each page to avoid stale element reference
-        logger.info(f"Establishing scroll origin for page {i+1}")
-        scroll_containers = [
-            '//div[contains(@class, "search-results")]'
+    def _create_driver(self) -> webdriver.Chrome:
+        """Create and configure Chrome WebDriver."""
+        chrome_options = Options()
+        
+        # Performance and stability options
+        performance_options = [
+            "--no-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-gpu",
+            "--disable-web-security",
+            "--disable-features=VizDisplayCompositor",
+            "--disable-extensions",
+            "--disable-plugins",
+            "--disable-images",
+            "--page-load-strategy=eager",
+            "--memory-pressure-off",
+            "--max_old_space_size=4096",
+            "--aggressive-cache-discard",
+            "--timeout=30000"
         ]
         
-        footer = None
-        for xpath in scroll_containers:
-            try:
-                logger.debug(f"Trying to find scroll container with xpath: {xpath}")
-                footer = driver.find_element(By.XPATH, xpath)
-                logger.info(f"Found scroll container using xpath: {xpath}")
-                break
-            except NoSuchElementException:
-                logger.debug(f"Container not found with xpath: {xpath}")
-                continue
+        for option in performance_options:
+            chrome_options.add_argument(option)
         
-        if not footer:
-            logger.error(f"Could not find any suitable scroll container for page {i+1}")
-            logger.warning(f"Skipping scrolling for page {i+1}")
-            scroll_origin = None
-        else:
-            scroll_origin = ScrollOrigin.from_element(footer)
-            logger.info(f"Scroll origin established for page {i+1}")
+        try:
+            driver = webdriver.Chrome(options=chrome_options)
+            driver.set_page_load_timeout(self.config.page_load_timeout)
+            driver.set_script_timeout(self.config.script_timeout)
+            driver.implicitly_wait(self.config.implicit_wait)
+            driver.maximize_window()
+            
+            self.logger.info("Chrome WebDriver created successfully")
+            return driver
+            
+        except Exception as e:
+            self.logger.error(f"Failed to create Chrome WebDriver: {e}")
+            raise
 
-        # Scroll and collect data
-        if scroll_origin:
-            logger.info(f"Scrolling page {i+1}")
-            for scroll_count in range(10):
+    def _safe_find_element(self, by: By, value: str, timeout: Optional[int] = None, 
+                          description: str = "") -> Optional[WebElement]:
+        """Safely find an element with error handling."""
+        if not self.driver:
+            self.logger.error("Driver not initialized")
+            return None
+            
+        timeout = timeout or self.config.element_wait_timeout
+        
+        try:
+            self.logger.debug(f"Finding element: {description}")
+            element = WebDriverWait(self.driver, timeout).until(
+                EC.presence_of_element_located((by, value))  # type: ignore
+            )
+            self.logger.debug(f"Found element: {description}")
+            return element
+        except TimeoutException:
+            self.logger.warning(f"Timeout finding element: {description}")
+            return None
+        except Exception as e:
+            self.logger.error(f"Error finding element {description}: {e}")
+            return None
+
+    def _safe_click_element(self, element: Optional[WebElement], description: str = "") -> bool:
+        """Safely click an element."""
+        if not self.driver or not element:
+            self.logger.error(f"Cannot click element: {description}")
+            return False
+            
+        try:
+            self.driver.execute_script("arguments[0].scrollIntoView(true);", element)
+            time.sleep(1)
+            element.click()
+            self.logger.debug(f"Clicked: {description}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error clicking {description}: {e}")
+            return False
+
+    def _validate_credentials(self) -> bool:
+        """Validate that credentials are provided."""
+        if not self.config.username or not self.config.password:
+            self.logger.error("Username and password are required")
+            return False
+        return True
+
+    def login(self) -> bool:
+        """Perform login to LinkedIn."""
+        if not self.driver:
+            self.logger.error("Driver not initialized")
+            return False
+            
+        if not self._validate_credentials():
+            return False
+            
+        try:
+            self.driver.get("https://www.linkedin.com/login")
+            time.sleep(2)
+            
+            # Enter username
+            username_field = self._safe_find_element(By.ID, "username", description="username field")
+            if not username_field:
+                return False
+                
+            username_field.clear()
+            time.sleep(0.5)
+            username_field.send_keys(self.config.username)
+            
+            # Enter password
+            password_field = self.driver.find_element(By.ID, "password")
+            password_field.clear()
+            time.sleep(0.5)
+            password_field.send_keys(self.config.password)
+            
+            time.sleep(1)
+            
+            # Click login button
+            login_button = self.driver.find_element(By.XPATH, "//button[@type='submit']")
+            login_button.click()
+            
+            # Wait for login success
+            try:
+                WebDriverWait(self.driver, 15).until(
+                    lambda d: any([
+                        "/feed" in d.current_url,
+                        "/in/" in d.current_url,
+                        "linkedin.com/feed" in d.current_url,
+                        d.find_elements(By.CSS_SELECTOR, "[data-test-id='nav-top-secondary']")
+                    ])
+                )
+                self.logger.info("Successfully logged into LinkedIn")
+                return True
+                
+            except Exception:
+                current_url = self.driver.current_url
+                page_source = self.driver.page_source.lower()
+                
+                if "challenge" in current_url or "verification" in page_source:
+                    self.logger.error("Login blocked - security challenge detected")
+                elif "login" in current_url:
+                    self.logger.error("Login failed - still on login page")
+                else:
+                    self.logger.error(f"Unexpected page after login: {current_url}")
+                return False
+                    
+        except Exception as e:
+            self.logger.error(f"Login error: {e}")
+            return False
+
+    def _navigate_to_page(self, page_num: int) -> bool:
+        """Navigate to a specific page in search results."""
+        if page_num == 1:
+            return True
+            
+        # Try multiple selectors for pagination
+        selectors = [
+            f'button[aria-label="Page {page_num}"]',
+            f'li[data-test-pagination-page-btn="{page_num}"] button',
+            f'button[data-test-pagination-page-btn="{page_num}"]'
+        ]
+        
+        for selector in selectors:
+            page_button = self._safe_find_element(
+                By.CSS_SELECTOR, selector, timeout=10,
+                description=f"Page {page_num} button"
+            )
+            if page_button and self._safe_click_element(page_button, f"Page {page_num}"):
+                self.logger.info(f"Navigated to page {page_num}")
+                time.sleep(15)
+                return True
+        
+        self.logger.warning(f"Could not navigate to page {page_num}")
+        return False
+
+    def _scroll_page(self) -> None:
+        """Scroll through the page to load all job listings."""
+        if not self.driver:
+            return
+            
+        try:
+            # Find scroll container
+            footer = self.driver.find_element(By.XPATH, '//div[contains(@class, "search-results")]')
+            scroll_origin = ScrollOrigin.from_element(footer)
+            
+            # Perform scrolling
+            for i in range(self.config.scroll_count):
                 try:
-                    ActionChains(driver).scroll_from_origin(scroll_origin, 0, scroll_count*500).perform()
-                    logger.debug(f"Scroll {scroll_count+1}/6 completed")
+                    ActionChains(self.driver).scroll_from_origin(
+                        scroll_origin, 0, i * self.config.scroll_step
+                    ).perform()
                     time.sleep(2)
                 except Exception as e:
-                    logger.error(f"Error during scroll {scroll_count+1}: {str(e)}")
-                    # Try to re-establish scroll origin if it becomes stale
-                    try:
-                        footer = driver.find_element(By.XPATH, scroll_containers[0])
-                        scroll_origin = ScrollOrigin.from_element(footer)
-                        logger.info("Re-established scroll origin after error")
-                        # Retry the scroll
-                        ActionChains(driver).scroll_from_origin(scroll_origin, 0, scroll_count*500).perform()
-                        logger.debug(f"Retry scroll {scroll_count+1}/6 completed")
-                        time.sleep(30)
-                    except Exception as retry_error:
-                        logger.error(f"Failed to retry scroll {scroll_count+1}: {str(retry_error)}")
-                        break
-        else:
-            logger.warning(f"No scroll origin available for page {i+1}, skipping scrolling")
+                    self.logger.warning(f"Scroll error at step {i}: {e}")
+                    break
+                    
+        except NoSuchElementException:
+            self.logger.warning("No scroll container found, skipping scrolling")
 
-        # Parse job elements using Selenium
-        logger.info(f"Parsing page {i+1} content")
-        selector = ".artdeco-entity-lockup"
-        job_elements = None
-        data = {'Job Title': [], 'Company Name': [], 'Location': [], 'Link': []}
-
-        try:
-            logger.info(f"Trying selector: {selector}")
-            WebDriverWait(driver, 15).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, selector))
-            )
-            job_elements = driver.find_elements(By.CSS_SELECTOR, selector)
-            logger.info("Job elements details:")
-
-            for j, element in enumerate(job_elements):
-                logger.info(f"Element {j}:")
-                logger.info(f"  Text content: {element.text}")
+    def _extract_job_data(self) -> Dict[str, List[str]]:
+        """Extract job data from current page."""
+        if not self.driver:
+            return {'Job Title': [], 'Company Name': [], 'Location': [], 'Link': []}
             
+        data = {'Job Title': [], 'Company Name': [], 'Location': [], 'Link': []}
+        
+        try:
+            # Wait for job elements to load
+            WebDriverWait(self.driver, self.config.element_wait_timeout).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, ".artdeco-entity-lockup"))  # type: ignore
+            )
+            
+            job_elements = self.driver.find_elements(By.CSS_SELECTOR, ".artdeco-entity-lockup")
+            
+            for element in job_elements:
                 try:
-                    current_url = driver.current_url
+                    # Extract job information
+                    title_elem = element.find_element(By.CSS_SELECTOR, ".artdeco-entity-lockup__title")
+                    company_elem = element.find_element(By.CSS_SELECTOR, ".artdeco-entity-lockup__subtitle")
+                    location_elem = element.find_element(By.CSS_SELECTOR, ".artdeco-entity-lockup__caption")
+                    
+                    # Get job URL by clicking element
+                    current_url = self.driver.current_url
                     element.click()
                     time.sleep(2)
-                    new_url = driver.current_url
+                    job_url = self.driver.current_url
                     
-                    # Extract job details
-                    title = element.find_element(By.CSS_SELECTOR, ".artdeco-entity-lockup__title").text
-                    company = element.find_element(By.CSS_SELECTOR, ".artdeco-entity-lockup__subtitle").text
-                    location = element.find_element(By.CSS_SELECTOR, ".artdeco-entity-lockup__caption").text
+                    # Store data
+                    data['Job Title'].append(title_elem.text.strip())
+                    data['Company Name'].append(company_elem.text.strip())
+                    data['Location'].append(location_elem.text.strip())
+                    data['Link'].append(job_url)
                     
-                    data['Job Title'].append(title)
-                    data['Company Name'].append(company)
-                    data['Location'].append(location)
-                    data['Link'].append(new_url)
-                    
-                    if new_url != current_url:
-                        logger.info(f"  Element click navigated to: {new_url}")
-                        driver.back()
+                    # Navigate back if URL changed
+                    if job_url != current_url:
+                        self.driver.back()
                         time.sleep(2)
-                    else:
-                        logger.info(f"  Element click did not navigate to new page")
+                        
                 except Exception as e:
-                    logger.info(f"  Could not process element: {e}")
-
-            if job_elements:
-                logger.info(f"Found {len(job_elements)} elements with selector: {selector}")
+                    self.logger.debug(f"Error processing job element: {e}")
+                    continue
+                    
         except Exception as e:
-            logger.debug(f"Selector {selector} failed: {e}")
-        
-        logger.info(f"Page {i+1} data: {len(data.get('Job Title', []))} jobs found")
-        logger.debug(f"Page {i+1} sample data: {data}")
-        
-        # Append the data to the list
-        data_list.append(data)
-
-    # Write data to text file
-    logger.info("Writing collected data to text file")
-    output_file = 'linkedin_data.txt'
-    
-    with open(output_file, 'w', encoding='utf-8') as f:
-        f.write("LinkedIn Job Scraping Results\n")
-        f.write("=" * 50 + "\n\n")
-        
-        job_count = 0
-        for page_num, page_data in enumerate(data_list, 1):
-            f.write(f"PAGE {page_num} RESULTS:\n")
-            f.write("-" * 30 + "\n")
+            self.logger.error(f"Error extracting job data: {e}")
             
-            # Get the length of the shortest list to avoid index errors
-            min_length = min(len(page_data.get('Job Title', [])), 
-                           len(page_data.get('Company Name', [])), 
-                           len(page_data.get('Location', [])), 
-                           len(page_data.get('Link', [])))
+        return data
+
+    def _save_results(self) -> None:
+        """Save scraping results to CSV files for each page."""
+        if not self.data_list:
+            self.logger.warning("No data to save")
+            return
             
-            for i in range(min_length):
-                job_count += 1
-                f.write(f"Job #{job_count}:\n")
-                f.write(f"  Title: {page_data['Job Title'][i]}\n")
-                f.write(f"  Company: {page_data['Company Name'][i]}\n")
-                f.write(f"  Location: {page_data['Location'][i]}\n")
-                f.write(f"  Link: {page_data['Link'][i]}\n")
-                f.write("\n")
+        total_jobs = 0
+        saved_files = []
+        
+        try:
+            for page_num, page_data in enumerate(self.data_list, 1):
+                if page_data:
+                    # Get minimum length to avoid index errors
+                    min_length = min(
+                        len(page_data.get('Job Title', [])),
+                        len(page_data.get('Company Name', [])),
+                        len(page_data.get('Location', [])),
+                        len(page_data.get('Link', []))
+                    )
+                    
+                    if min_length > 0:
+                        df = pd.DataFrame(page_data)
+                        csv_filename = f'linkedin_data_page_{page_num}.csv'
+                        df.to_csv(csv_filename, index=False)
+                        saved_files.append(csv_filename)
+                        total_jobs += min_length
+                        self.logger.info(f"Saved page {page_num} to {csv_filename} ({min_length} jobs)")
             
-            f.write(f"Page {page_num} total jobs: {min_length}\n\n")
-            # also save the data to a csv file
-            df = pd.DataFrame(page_data)
-            df.to_csv(f'linkedin_data_{page_num}.csv', index=False)
+            self.logger.info(f"Results saved to {len(saved_files)} CSV files with {total_jobs} total jobs")
+            self.logger.info(f"Files created: {', '.join(saved_files)}")
+            
+        except Exception as e:
+            self.logger.error(f"Error saving results: {e}")
 
-    logger.info(f"Data saved to {output_file} with {job_count} total job listings")
+    def scrape(self) -> bool:
+        """Main scraping method."""
+        try:
+            self.driver = self._create_driver()
+            
+            if not self.login():
+                self.logger.error("Login failed, exiting")
+                return False
+            
+            self.logger.info(f"Navigating to: {self.config.search_url}")
+            self.driver.get(self.config.search_url)
+            time.sleep(3)
+            
+            # Scrape pages
+            for page_num in range(1, self.config.total_pages + 1):
+                self.logger.info(f"Processing page {page_num}/{self.config.total_pages}")
+                
+                if not self._navigate_to_page(page_num):
+                    self.logger.warning(f"Stopping at page {page_num-1}")
+                    break
+                
+                self._scroll_page()
+                page_data = self._extract_job_data()
+                
+                jobs_found = len(page_data.get('Job Title', []))
+                self.logger.info(f"Page {page_num}: {jobs_found} jobs found")
+                
+                if jobs_found > 0:
+                    self.data_list.append(page_data)
+                else:
+                    self.logger.warning(f"No jobs found on page {page_num}")
+            
+            self._save_results()
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Scraping error: {e}")
+            
+            # Save error screenshot
+            if self.driver:
+                try:
+                    screenshot_path = f"error_screenshot_{int(time.time())}.png"
+                    self.driver.save_screenshot(screenshot_path)
+                    self.logger.info(f"Error screenshot saved: {screenshot_path}")
+                except Exception:
+                    pass
+                    
+            return False
+            
+        finally:
+            if self.driver:
+                self.logger.info("Closing browser")
+                self.driver.quit()
 
-except Exception as e:
-    logger.error(f"An error occurred during scraping: {str(e)}")
-    logger.debug(f"Current URL: {driver.current_url}")
-    logger.debug(f"Page title: {driver.title}")
+
+def create_config_from_args(args: argparse.Namespace) -> ScrapingConfig:
+    """Create configuration from command line arguments."""
+    config = ScrapingConfig()
     
-    # Save screenshot for debugging
-    try:
-        screenshot_path = f"error_screenshot_{int(time.time())}.png"
-        driver.save_screenshot(screenshot_path)
-        logger.info(f"Screenshot saved to {screenshot_path}")
-    except Exception as screenshot_error:
-        logger.error(f"Could not save screenshot: {str(screenshot_error)}")
-    
-    raise e
+    if args.username:
+        config.username = args.username
+    if args.password:
+        config.password = args.password
+    if args.search_query:
+        config.search_query = args.search_query
+    if args.pages:
+        config.total_pages = args.pages
+        
+    return config
 
-finally:
-    logger.info("Closing browser")
-    driver.quit()
+
+def main():
+    """Main entry point."""
+    parser = argparse.ArgumentParser(
+        description='LinkedIn Job Scraper',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python linkedin_scraper.py --username user@example.com --password mypass
+  python linkedin_scraper.py --username user@example.com --password mypass --pages 50
+        """
+    )
+    
+    parser.add_argument('--username', required=True, help='LinkedIn username/email')
+    parser.add_argument('--password', required=True, help='LinkedIn password')
+    parser.add_argument('--search-query', help='Job search query')
+    parser.add_argument('--pages', type=int, default=100, help='Number of pages to scrape')
+    
+    args = parser.parse_args()
+    
+    # Create configuration and run scraper
+    config = create_config_from_args(args)
+    scraper = LinkedInScraper(config)
+    
+    success = scraper.scrape()
+    exit(0 if success else 1)
+
+
+if __name__ == "__main__":
+    main()
