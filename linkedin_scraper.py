@@ -104,6 +104,53 @@ def info(soup):
     info_dict = {'Job Title': get_job_title(soup), 'Company Name': get_company(soup), 'Location': get_location(soup), 'Link':get_url(soup)}
     return info_dict
 
+def create_driver():
+    """Create a Chrome WebDriver with optimized settings to prevent timeouts."""
+    from selenium.webdriver.chrome.options import Options
+    
+    chrome_options = Options()
+    
+    # Add arguments to improve stability and prevent timeouts
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--disable-web-security")
+    chrome_options.add_argument("--disable-features=VizDisplayCompositor")
+    chrome_options.add_argument("--disable-extensions")
+    chrome_options.add_argument("--disable-plugins")
+    chrome_options.add_argument("--disable-images")  # Disable image loading for faster performance
+    chrome_options.add_argument("--disable-javascript")  # This might break some functionality, remove if needed
+    chrome_options.add_argument("--page-load-strategy=eager")  # Don't wait for all resources to load
+    
+    # Memory and performance optimizations
+    chrome_options.add_argument("--memory-pressure-off")
+    chrome_options.add_argument("--max_old_space_size=4096")
+    chrome_options.add_argument("--aggressive-cache-discard")
+    
+    # Set timeouts
+    chrome_options.add_argument("--timeout=30000")
+    
+    # Create the driver with extended timeouts
+    try:
+        driver = webdriver.Chrome(options=chrome_options)
+        
+        # Set page load timeout
+        driver.set_page_load_timeout(60)  # 60 seconds timeout for page loads
+        
+        # Set script timeout
+        driver.set_script_timeout(30)  # 30 seconds timeout for script execution
+        
+        # Set implicit wait
+        driver.implicitly_wait(10)  # 10 seconds implicit wait
+        
+        logger.info("Chrome WebDriver created successfully with optimized settings")
+        return driver
+        
+    except Exception as e:
+        logger.error(f"Failed to create Chrome WebDriver: {str(e)}")
+        raise
+
+
 
 def login(driver: webdriver.Chrome, username: str, password: str) -> bool:
     """Perform login to LinkedIn using Selenium.
@@ -240,82 +287,17 @@ password = 'Qw090909'
 search = 'Senior Data Scientist'
 
 logger.info("Starting LinkedIn scraper")
-driver = webdriver.Chrome()
+# driver = webdriver.Chrome()
+driver = create_driver()  # Use the optimized driver creation function
 driver.maximize_window()
 
 try:
     if not login(driver, username, password):
         logger.error("Login failed, exiting")
         driver.quit()
-        exit(1)
+        exit(1)    
 
-    logger.info(f"Searching for: {search}")
-    
-    # Find search element with better error handling
-    search_element = safe_find_element(
-        driver, 
-        By.CSS_SELECTOR, 
-        "input.search-global-typeahead__input",
-        description="search input field"
-    )
-    
-    if not search_element:
-        # Try alternative selectors
-        logger.warning("Primary search selector failed, trying alternatives")
-        alternative_selectors = [
-            "input[placeholder*='Search']",
-            ".search-global-typeahead__input",
-            "input.global-nav__search-typeahead-input"
-        ]
-        
-        for selector in alternative_selectors:
-            search_element = safe_find_element(driver, By.CSS_SELECTOR, selector, timeout=5, description=f"alternative search selector: {selector}")
-            if search_element:
-                break
-    
-    if not search_element:
-        logger.error("Could not find search input field")
-        raise Exception("Search input field not found")
-    
-    search_element.clear()
-    search_element.send_keys(search)
-    search_element.send_keys(Keys.RETURN)
-    logger.info("Search submitted, waiting for results")
-    time.sleep(5)
-
-    # Click Jobs filter with better error handling
-    jobs_filter = safe_find_element(
-        driver,
-        By.CSS_SELECTOR,
-        '.artdeco-pill.artdeco-pill--slate.artdeco-pill--choice.artdeco-pill--2.search-reusables__filter-pill-button',
-        description="Jobs filter button"
-    )
-    
-    if not jobs_filter:
-        # Try alternative jobs filter selectors
-        logger.warning("Primary jobs filter selector failed, trying alternatives")
-        alternative_jobs_selectors = [
-            "button[aria-label='Jobs']",
-            ".search-reusables__filter-pill-button:contains('Jobs')",
-            "button:contains('Jobs')"
-        ]
-        
-        for selector in alternative_jobs_selectors:
-            jobs_filter = safe_find_element(driver, By.CSS_SELECTOR, selector, timeout=5, description=f"alternative jobs filter: {selector}")
-            if jobs_filter:
-                break
-    
-    if not jobs_filter:
-        logger.error("Could not find Jobs filter button")
-        raise Exception("Jobs filter button not found")
-    
-    if not safe_click_element(driver, jobs_filter, "Jobs filter button"):
-        raise Exception("Failed to click Jobs filter")
-    
-    logger.info("Jobs filter clicked, waiting for page to load")
-    time.sleep(8)
-
-    search_url = 'https://www.linkedin.com/jobs/collections/top-applicant/?currentJobId=4254759627'
+    search_url = 'https://www.linkedin.com/jobs/search-results/?f_TPR=r2592000&keywords=%22Senior%20Data%20Scientist%22'
     logger.info(f"Navigating to search URL: {search_url}")
     driver.get(search_url)
     
@@ -327,9 +309,10 @@ try:
     logger.debug(f"Page title: {driver.title}")
 
     data_list = []
+    total_pages = 100
 
-    for i in range(40):
-        logger.info(f"Processing page {i+1}/4")
+    for i in range(total_pages):
+        logger.info(f"Processing page {i+1}/{total_pages}")
         
         # Find pagination button with better error handling
         if i + 1 != 1:
@@ -392,11 +375,11 @@ try:
         # Scroll and collect data
         if scroll_origin:
             logger.info(f"Scrolling page {i+1}")
-            for scroll_count in range(6):
+            for scroll_count in range(10):
                 try:
                     ActionChains(driver).scroll_from_origin(scroll_origin, 0, scroll_count*500).perform()
                     logger.debug(f"Scroll {scroll_count+1}/6 completed")
-                    time.sleep(30)
+                    time.sleep(2)
                 except Exception as e:
                     logger.error(f"Error during scroll {scroll_count+1}: {str(e)}")
                     # Try to re-establish scroll origin if it becomes stale
@@ -428,8 +411,8 @@ try:
             job_elements = driver.find_elements(By.CSS_SELECTOR, selector)
             logger.info("Job elements details:")
 
-            for i, element in enumerate(job_elements):
-                logger.info(f"Element {i}:")
+            for j, element in enumerate(job_elements):
+                logger.info(f"Element {j}:")
                 logger.info(f"  Text content: {element.text}")
             
                 try:
