@@ -2,4 +2,3 @@ __pycache__/
 datastore/
 *.log
 *.csv
-combine_csv.py
