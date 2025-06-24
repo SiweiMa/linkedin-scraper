@@ -353,39 +353,27 @@ class LinkedInScraper:
             
         return data
 
-    def _save_results(self) -> None:
-        """Save scraping results to CSV files for each page."""
-        if not self.data_list:
-            self.logger.warning("No data to save")
-            return
-            
-        total_jobs = 0
-        saved_files = []
-        
+    def _save_page_data(self, page_data: Dict[str, List[str]], page_num: int) -> None:
+        """Save data for a single page immediately to CSV."""
         try:
-            for page_num, page_data in enumerate(self.data_list, 1):
-                if page_data:
-                    # Get minimum length to avoid index errors
-                    min_length = min(
-                        len(page_data.get('Job Title', [])),
-                        len(page_data.get('Company Name', [])),
-                        len(page_data.get('Location', [])),
-                        len(page_data.get('Link', []))
-                    )
-                    
-                    if min_length > 0:
-                        df = pd.DataFrame(page_data)
-                        csv_filename = f'linkedin_data_page_{page_num}.csv'
-                        df.to_csv(csv_filename, index=False)
-                        saved_files.append(csv_filename)
-                        total_jobs += min_length
-                        self.logger.info(f"Saved page {page_num} to {csv_filename} ({min_length} jobs)")
+            # Get minimum length to avoid index errors
+            min_length = min(
+                len(page_data.get('Job Title', [])),
+                len(page_data.get('Company Name', [])),
+                len(page_data.get('Location', [])),
+                len(page_data.get('Link', []))
+            )
             
-            self.logger.info(f"Results saved to {len(saved_files)} CSV files with {total_jobs} total jobs")
-            self.logger.info(f"Files created: {', '.join(saved_files)}")
-            
+            if min_length > 0:
+                df = pd.DataFrame(page_data)
+                csv_filename = f'linkedin_data_page_{page_num}.csv'
+                df.to_csv(csv_filename, index=False)
+                self.logger.info(f"Saved page {page_num} to {csv_filename} ({min_length} jobs)")
+            else:
+                self.logger.warning(f"No valid data to save for page {page_num}")
+                
         except Exception as e:
-            self.logger.error(f"Error saving results: {e}")
+            self.logger.error(f"Error saving page {page_num} data: {e}")
 
     def scrape(self) -> bool:
         """Main scraping method."""
@@ -415,11 +403,12 @@ class LinkedInScraper:
                 self.logger.info(f"Page {page_num}: {jobs_found} jobs found")
                 
                 if jobs_found > 0:
-                    self.data_list.append(page_data)
+                    # Save page data immediately and don't keep it in memory
+                    self._save_page_data(page_data, page_num)
                 else:
                     self.logger.warning(f"No jobs found on page {page_num}")
             
-            self._save_results()
+            self.logger.info("Scraping completed successfully")
             return True
             
         except Exception as e:
