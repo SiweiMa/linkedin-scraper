@@ -49,7 +49,7 @@ class ScrapingConfig:
     search_query: str = "Senior Data Scientist"
     search_url: str = 'https://www.linkedin.com/jobs/search-results/?f_TPR=r604800&keywords=%22senior%20data%20engineer%22&origin=JOBS_HOME_SEARCH_BUTTON'
     total_pages: int = 100
-    scroll_count: int = 10
+    scroll_count: int = 15
     scroll_step: int = 500
     page_load_timeout: int = 60
     script_timeout: int = 30
